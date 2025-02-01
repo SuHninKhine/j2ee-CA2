@@ -35,4 +35,41 @@ public class UserDAO {
 
         return customers;
     }
+    
+    public static List<Users> getTopSpendingUsers() throws Exception {
+        List<Users> topSpendingUsers = new ArrayList<>();
+
+        try {
+            Connection conn = DBConnection.getConnection();
+
+            // Query to get top 10 users by total spending, calculated from the Payments and Receipts tables
+            String sql = "SELECT u.id, u.username, u.email, SUM(p.amount) AS total_spent " +
+                         "FROM users u " +
+                         "JOIN receipt r ON u.id = r.user_id " +
+                         "JOIN payments p ON r.receipt_id = p.receipt_id " +
+                         "GROUP BY u.id " +
+                         "ORDER BY total_spent DESC " +
+                         "LIMIT 10";
+
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Users user = new Users();
+                user.setId(rs.getInt("id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                // Set the total spent directly from the query result
+                user.setTotalSpent(rs.getBigDecimal("total_spent"));
+
+                topSpendingUsers.add(user);
+            }
+
+            conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return topSpendingUsers;
+    }
 }
