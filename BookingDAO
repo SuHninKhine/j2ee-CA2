@@ -1,0 +1,78 @@
+package dbaccess;
+
+import java.sql.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BookingDAO {
+
+    // Retrieve bookings by date
+    public static List<Bookings> getBookingsByDate(LocalDate date) {
+        return getBookings("DATE(appointment_date) = ?", date.toString());
+    }
+    
+ // Retrieve bookings by year
+    public static List<Bookings> getBookingsByYear(int year) {
+        return getBookings("YEAR(appointment_date) = ?", String.valueOf(year));
+    }
+
+
+    // Retrieve bookings by month
+    public static List<Bookings> getBookingsByMonth(int year, int month) {
+        return getBookings("YEAR(appointment_date) = ? AND MONTH(appointment_date) = ?", String.valueOf(year), String.valueOf(month));
+    }
+
+    // Retrieve bookings by period (e.g., morning, afternoon, evening)
+    public static List<Bookings> getBookingsByPeriod(String period) {
+        String condition;
+        switch (period.toLowerCase()) {
+            case "morning":
+                condition = "HOUR(appointment_date) BETWEEN 6 AND 11";
+                break;
+            case "afternoon":
+                condition = "HOUR(appointment_date) BETWEEN 12 AND 17";
+                break;
+            case "evening":
+                condition = "HOUR(appointment_date) BETWEEN 18 AND 23";
+                break;
+            default:
+                condition = "1=1"; // No filter if the period is invalid
+        }
+        return getBookings(condition);
+    }
+
+    // Helper method to fetch bookings based on condition
+    private static List<Bookings> getBookings(String condition, String... params) {
+        List<Bookings> bookings = new ArrayList<>();
+        try {
+            Connection conn = DBConnection.getConnection();
+            String sql = "SELECT * FROM bookings WHERE " + condition + " ORDER BY appointment_date ASC";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            
+            // Set dynamic parameters
+            for (int i = 0; i < params.length; i++) {
+                pstmt.setString(i + 1, params[i]);
+            }
+
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                Bookings booking = new Bookings();
+                booking.setBookingId(rs.getInt("booking_id"));
+                booking.setUserId(rs.getInt("user_id"));
+                booking.setServiceId(rs.getInt("service_id"));
+                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
+                booking.setSpecialRequests(rs.getString("special_requests"));
+                booking.setStatus(rs.getString("status"));
+                booking.setAddress(rs.getString("address"));
+                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
+                
+                bookings.add(booking);
+            }
+            conn.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return bookings;
+    }
+}
