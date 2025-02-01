@@ -1,48 +1,37 @@
-<%@ page import="java.util.List, dbaccess.Users" %>
-<%@ page contentType="text/html; charset=UTF-8" language="java" %>
+package servlets;
 
-<html>
-<head>
-    <title>Top Spending Users</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #f4f4f4; }
-    </style>
-</head>
-<body>
-    <h2>Top 10 Spending Users</h2>
+import dbaccess.UserDAO;
+import dbaccess.Users;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-    <table>
-        <tr>
-            <th>User ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Total Spent</th>
-        </tr>
+import java.io.IOException;
+import java.util.List;
 
-        <% 
-            List<Users> topUsers = (List<Users>) request.getAttribute("topUsers");
-            if (topUsers != null && !topUsers.isEmpty()) {
-                for (Users user : topUsers) {
-        %>
-                    <tr>
-                        <td><%= user.getId() %></td>
-                        <td><%= user.getUsername() %></td>
-                        <td><%= user.getEmail() %></td>
-                        <td><%= user.getTotalSpent() %></td>
-                    </tr>
-        <% 
-                }
-            } else {
-        %>
-                <tr>
-                    <td colspan="4">No top spending users found.</td>
-                </tr>
-        <% 
-            }
-        %>
-    </table>
-</body>
-</html>
+@WebServlet("/ViewTopSpendingUsersServlet")
+public class ViewTopSpendingUsersServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    public ViewTopSpendingUsersServlet() {
+        super();
+    }
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // Fetching top spending users
+        List<Users> topUsers = null;
+		try {
+			topUsers = UserDAO.getTopSpendingUsers();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        request.setAttribute("topUsers", topUsers);
+
+        RequestDispatcher dispatcher = request.getRequestDispatcher("/CA2/viewTopSpendingUsers.jsp");
+        dispatcher.forward(request, response);
+    }
+}
