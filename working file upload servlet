@@ -1,0 +1,121 @@
+package servlets;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
+
+import dbaccess.ServiceDAO;
+
+@WebServlet("/uploadServiceImage")
+@MultipartConfig(
+    fileSizeThreshold = 1024 * 1024 * 2, // 2MB
+    maxFileSize = 1024 * 1024 * 10,      // 10MB
+    maxRequestSize = 1024 * 1024 * 50    // 50MB
+)
+public class UploadServiceImageServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    // Directory where images will be saved (inside the CA2 folder)
+    private static final String UPLOAD_DIR = "eclipse-workspace\\ca2\\src\\main\\webapp\\CA2\\service_images";
+
+    public UploadServiceImageServlet() {
+        super();
+    }
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        System.out.println("⚡ UploadServiceImageServlet: Processing file upload...");
+
+        int serviceId = -1;
+        try {
+            serviceId = Integer.parseInt(request.getParameter("serviceId"));
+            System.out.println("✅ Received serviceId: " + serviceId);
+        } catch (NumberFormatException e) {
+            System.out.println("❌ Invalid service ID.");
+            request.setAttribute("message", "Invalid service ID.");
+            request.getRequestDispatcher("/CA2/uploadResult.jsp").forward(request, response);
+            return;
+        }
+
+        Part filePart = request.getPart("serviceImage");
+
+        if (filePart != null && filePart.getSize() > 0) {
+            String fileName = Paths.get(filePart.getSubmittedFileName()).getFileName().toString();
+            System.out.println("📦 Received file: " + fileName + " (Size: " + filePart.getSize() + " bytes)");
+
+            // ✅ Save files directly to your Eclipse project folder
+            //📁 Resolved upload path: C:\Users\Ssuhn\Downloads\eclipse-jee-2024-09-R-win32-x86_64\eclipse\CA2\service_images
+            //C:\Users\Ssuhn\eclipse-workspace\ca2\src\main\webapp\CA2\service_images
+            String projectRootPath = System.getProperty("user.dir"); // Get project root
+//            String uploadPath = projectRootPath + File.separator + UPLOAD_DIR;
+//            System.out.println("📁 Resolved upload path: " + uploadPath);
+            
+            String keyword = "Downloads";
+            // Check if the path contains "Downloads" and trim everything from there
+            int index = projectRootPath.indexOf(keyword);
+            if (index != -1) {
+                projectRootPath = projectRootPath.substring(0, index);
+            }
+
+//            String UPLOAD_DIR = "uploads";  // Example upload directory
+            String uploadPath = projectRootPath + File.separator + UPLOAD_DIR;
+
+            System.out.println("Cleaned Path: " + projectRootPath);
+            System.out.println("Upload Path: " + uploadPath);
+
+            File uploadDir = new File(uploadPath);
+            if (!uploadDir.exists()) {
+                boolean dirCreated = uploadDir.mkdirs();
+                System.out.println("📂 Upload directory does not exist. Creating...");
+                System.out.println("✅ Directory creation status: " + dirCreated);
+            }
+
+            // Saving the file
+            String filePath = uploadPath + File.separator + fileName;
+            System.out.println("🚀 Attempting to save the file at: " + filePath);
+
+            try {
+                filePart.write(filePath);
+                System.out.println("✅ File saved successfully at: " + filePath);
+            } catch (IOException e) {
+                System.out.println("❌ Error saving the file: " + e.getMessage());
+                e.printStackTrace();
+                request.setAttribute("message", "Error saving the file.");
+                request.getRequestDispatcher("/CA2/uploadResult.jsp").forward(request, response);
+                return;
+            }
+
+            // Save relative path to the database
+            String imagePath = UPLOAD_DIR + "/" + fileName;
+            System.out.println("💾 Saving image path to DB: " + imagePath);
+
+            ServiceDAO serviceDAO = new ServiceDAO();
+            boolean isUpdated = false;
+            try {
+                isUpdated = serviceDAO.updateServiceImage(serviceId, imagePath);
+                System.out.println("✅ Database update status: " + isUpdated);
+            } catch (Exception e) {
+                System.out.println("❌ Error updating database: " + e.getMessage());
+                e.printStackTrace();
+            }
+
+            if (isUpdated) {
+                request.setAttribute("message", "Service image uploaded successfully!");
+            } else {
+                request.setAttribute("message", "Failed to update service image in the database.");
+            }
+        } else {
+            System.out.println("⚠️ No file uploaded.");
+            request.setAttribute("message", "No file uploaded. Please select an image.");
+        }
+
+        System.out.println("✅ Image upload process completed.");
+        request.getRequestDispatcher("/CA2/uploadResult.jsp").forward(request, response);
+    }
+}
