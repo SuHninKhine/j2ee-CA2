@@ -2,12 +2,133 @@ package dbaccess;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class BookingDAO {
+	public static boolean updateBookingStatus(int userId) throws SQLException {
+	    Connection conn = null;
+	    boolean success = false;
+	    try {
+	        conn = DBConnection.getConnection();
 
-    // Retrieve bookings by date
+	        String sqlStr = "UPDATE Bookings SET status = 'Confirmed' WHERE booking_id IN (SELECT booking_id FROM Cart WHERE user_id = ? AND status = 'Pending')";
+
+	        PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+	        pstmt.setInt(1, userId);
+
+	        int rowsUpdated = pstmt.executeUpdate(); // Use int to capture the number of affected rows
+
+	        if (rowsUpdated > 0) {
+	            success = true;
+	            System.out.println("Booking status updated successfully.");
+	        } else {
+	            System.out.println("No rows updated in the bookings.");
+	        }
+
+	    } catch (Exception err) {
+	        System.out.println("....CartDAO: " + err);
+	    } finally {
+	        if (conn != null) conn.close();
+	    }
+
+	    return success;
+	}
+	
+	public ArrayList<Bookings> getBookingsByUserId(int userId) {
+	    ArrayList<Bookings> bookings = new ArrayList<>();
+	    try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/cleaning_service", "root", "1234")) {
+
+	        // SQL query to fetch bookings
+	        String query = "SELECT b.booking_id AS booking_id, s.service_name, b.appointment_date, b.special_requests, b.address, b.status " +
+	                       "FROM Bookings b " +
+	                       "JOIN Services s ON b.service_id = s.service_id " +
+	                       "WHERE b.user_id = ? ORDER BY b.appointment_date DESC";
+	        PreparedStatement stmt = conn.prepareStatement(query);
+	        stmt.setInt(1, userId);
+	        ResultSet rs = stmt.executeQuery();
+
+	        // Process the result set
+	        while (rs.next()) {
+	            Bookings booking = new Bookings();
+	            booking.setBookingId(rs.getInt("booking_id"));
+	            booking.setServiceName(rs.getString("service_name"));
+	            // Convert appointment_date from String to LocalDateTime
+	            String appointmentDateString = rs.getString("appointment_date");
+	            if (appointmentDateString != null) {
+	                // Assuming appointment_date is stored in the DB as a string in a standard format
+	                LocalDateTime appointmentDate = LocalDateTime.parse(appointmentDateString, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+	                booking.setAppointmentDate(appointmentDate);
+	            }
+
+	            booking.setSpecialRequests(rs.getString("special_requests"));
+	            booking.setAddress(rs.getString("address"));
+	            booking.setStatus(rs.getString("status"));
+	            bookings.add(booking);
+	        }
+
+	        rs.close();
+	        stmt.close();
+
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	    }
+	    return bookings;
+	}
+
+	public static ArrayList<Bookings> getAllCancellations() throws SQLException {
+        ArrayList<Bookings> cancelledBookings = new ArrayList<>();
+        Connection conn = DBConnection.getConnection();
+
+        try {
+            String sqlStr = "SELECT " +
+                            "b.booking_id, " +
+                            "u.id, " +
+                            "u.username AS customerName, " +
+                            "u.email, " +
+                            "s.service_name, " +
+                            "s.price AS revenueLost, " +
+                            "b.appointment_date AS cancellationDate, " +
+                            "b.status, " +
+                            "b.address " +
+                            "FROM bookings b " +
+                            "JOIN users u ON b.user_id = u.id " +
+                            "JOIN services s ON b.service_id = s.service_id " +
+                            "WHERE b.status = 'Cancelled' " +
+                            "ORDER BY cancellationDate DESC";
+
+            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Bookings booking = new Bookings();
+                booking.setBookingId(rs.getInt("booking_id"));
+                booking.setUserId(rs.getInt("id"));
+                booking.setCustomerName(rs.getString("customerName"));
+                booking.setEmail(rs.getString("email"));
+                booking.setServiceName(rs.getString("service_name"));
+                booking.setRevenueLost(rs.getFloat("revenueLost"));
+                booking.setAppointmentDate(rs.getTimestamp("cancellationDate").toLocalDateTime());
+                booking.setStatus(rs.getString("status"));
+                booking.setAddress(rs.getString("address"));
+
+                cancelledBookings.add(booking);
+            }
+
+            System.out.println("..done retrieving cancelled bookings..");
+
+        } catch (Exception err) {
+            System.out.println("....BookingDAO: " + err);
+        } finally {
+            conn.close();
+        }
+
+        return cancelledBookings;
+    }
+	
+	// Retrieve bookings by date
     public static List<Bookings> getBookingsByDate(LocalDate date) {
         return getBookings("DATE(appointment_date) = ?", date.toString());
     }
@@ -74,5 +195,81 @@ public class BookingDAO {
             e.printStackTrace();
         }
         return bookings;
+    }
+    
+    
+    // ✅ Get all pending bookings
+    public static ArrayList<Bookings> getPendingBookings() throws SQLException {
+        ArrayList<Bookings> pendingBookings = new ArrayList<>();
+        Connection conn = DBConnection.getConnection();
+
+        try {
+            String sqlStr = "SELECT " +
+                            "b.booking_id, " +
+                            "b.user_id, " +
+                            "b.service_id, " +
+                            "b.appointment_date, " +
+                            "b.special_requests, " +
+                            "b.status, " +
+                            "b.address, " +
+                            "b.booking_date " +
+                            "FROM bookings b " +
+                            "WHERE b.status = 'Pending' " +
+                            "ORDER BY b.appointment_date ASC";
+
+            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Bookings booking = new Bookings();
+                booking.setBookingId(rs.getInt("booking_id"));
+                booking.setUserId(rs.getInt("user_id"));
+                booking.setServiceId(rs.getInt("service_id"));
+                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
+                booking.setSpecialRequests(rs.getString("special_requests"));
+                booking.setStatus(rs.getString("status"));
+                booking.setAddress(rs.getString("address"));
+                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
+
+                pendingBookings.add(booking);
+            }
+
+            System.out.println("✅ Retrieved pending bookings.");
+
+        } catch (Exception err) {
+            System.out.println("❌ BookingDAO Error: " + err);
+        } finally {
+            conn.close();
+        }
+
+        return pendingBookings;
+    }
+
+    // ✅ Confirm a booking (update status to "Confirmed")
+    public static boolean confirmBooking(int bookingId) throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        boolean updated = false;
+
+        try {
+            String sqlStr = "UPDATE bookings SET status = 'Confirmed' WHERE booking_id = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+            pstmt.setInt(1, bookingId);
+
+            int affectedRows = pstmt.executeUpdate();
+            updated = affectedRows > 0;
+
+            if (updated) {
+                System.out.println("✅ Booking ID " + bookingId + " confirmed.");
+            } else {
+                System.out.println("⚠️ Booking ID " + bookingId + " not found or already confirmed.");
+            }
+
+        } catch (Exception err) {
+            System.out.println("❌ BookingDAO Error: " + err);
+        } finally {
+            conn.close();
+        }
+
+        return updated;
     }
 }
