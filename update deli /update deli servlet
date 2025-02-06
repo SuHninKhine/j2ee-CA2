@@ -1,0 +1,35 @@
+package servlets;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.sql.SQLException;
+
+import dbaccess.BookingDAO;
+@WebServlet("/UpdateDeliveryStatusServlet")
+public class UpdateDeliveryStatusServlet extends HttpServlet {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        int bookingId = Integer.parseInt(request.getParameter("bookingId"));
+
+        try {
+            boolean success = BookingDAO.markAsDelivering(bookingId);
+
+            if (success) {
+                request.setAttribute("message", "Booking and cart status updated to 'Delivering'.");
+            } else {
+                request.setAttribute("error", "Failed to update status.");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            request.setAttribute("error", "Database error: " + e.getMessage());
+        }
+
+        // Redirect back to the page
+        request.getRequestDispatcher("/CA2/updateDeliveryStatus.jsp").forward(request, response);
+    }
+} 
