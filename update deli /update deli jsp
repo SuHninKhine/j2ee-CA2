@@ -1,0 +1,76 @@
+<%@ page import="dbaccess.BookingDAO, dbaccess.Cart" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ page language="java" %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Update Delivery Status</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+<%@ include file="navbar-CA2.jsp" %>
+
+<div class="container mt-5">
+    <h2 class="text-center">Confirmed Orders</h2>
+
+    <%
+        ArrayList<Cart> confirmedCartItems = new ArrayList<>();
+        try {
+            confirmedCartItems = BookingDAO.getConfirmedCartItems();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (confirmedCartItems.isEmpty()) {
+    %>
+        <p class="text-center text-danger">No confirmed orders found.</p>
+    <%
+        } else {
+    %>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Cart Item ID</th>
+                    <th>Booking ID</th>
+                    <th>User ID</th>
+                    <th>Total Amount</th>
+                    <th>Created At</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+            <%
+                for (Cart cartItem : confirmedCartItems) {
+            %>
+                <tr>
+                    <td><%= cartItem.getCartItemId() %></td>
+                    <td><%= cartItem.getBookingId() %></td>
+                    <td><%= cartItem.getUserId() %></td>
+                    <td>$<%= cartItem.getTotalAmount() %></td>
+                    <td><%= cartItem.getCreatedAt() %></td>
+                    <td><%= cartItem.getStatus() %></td>
+                    <td>
+                        <form action="<%=request.getContextPath()%>/UpdateDeliveryStatusServlet" method="post">
+                            <input type="hidden" name="bookingId" value="<%= cartItem.getBookingId() %>">
+                            <button type="submit" class="btn btn-primary">Deliver</button>
+                        </form>
+                    </td>
+                </tr>
+            <%
+                }
+            %>
+            </tbody>
+        </table>
+    <%
+        }
+    %>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
