@@ -1,0 +1,62 @@
+
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.util.List" %>
+<%@ page import="dbaccess.Services" %>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Services by Category</title>
+</head>
+<body>
+    <h2>Get Services by Category</h2>
+    <form action="<%=request.getContextPath()%>/GetServicesByCategory" method="GET">
+        Enter Category ID: <input type="text" name="categoryId" required>
+        <input type="submit" value="Get Services">
+    </form>
+
+    <%
+        String error = (String) request.getAttribute("error");
+        if (error != null) {
+            out.print("<p style='color:red;'>" + error + "</p>");
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Services> servicesList = (List<Services>) request.getAttribute("servicesList");
+
+        if (servicesList != null && !servicesList.isEmpty()) {
+    %>
+    <h2>Services List</h2>
+    <table border="1">
+        <tr>
+            <th>Service ID</th>
+            <th>Service Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Category ID</th>
+            <th>Image</th>
+        </tr>
+        <%
+            for (Services service : servicesList) {
+        %>
+        <tr>
+            <td><%= service.getServiceId() %></td>
+            <td><%= service.getServiceName() %></td>
+            <td><%= service.getDescription() %></td>
+            <td><%= service.getPrice() %></td>
+            <td><%= service.getCategoryId() %></td>
+            <td><img src="<%= service.getImagePath() %>" width="100" alt="Service Image"></td>
+        </tr>
+        <%
+            }
+        %>
+    </table>
+    <%
+        } else if (servicesList != null) {
+            out.print("<p>No services found for the given category.</p>");
+        }
+    %>
+</body>
+</html>
