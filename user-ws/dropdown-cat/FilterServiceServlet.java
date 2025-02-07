@@ -4,8 +4,8 @@ import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Invocation;
@@ -28,16 +28,18 @@ public class FilterServicesServlet extends HttpServlet {
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String categoryId = request.getParameter("categoryId");
+        Client client = ClientBuilder.newClient();
+        String restUrl;
 
+        // If no category is selected, fetch all services
         if (categoryId == null || categoryId.isEmpty()) {
-            request.setAttribute("error", "Category ID is required.");
-            RequestDispatcher rd = request.getRequestDispatcher("/serviceFunctionalities.jsp");
-            rd.forward(request, response);
-            return;
+            restUrl = "http://localhost:8081/ca2-ws/getAllServices";
+            request.setAttribute("selectedCategoryId", "");  // No selection
+        } else {
+            restUrl = "http://localhost:8081/ca2-ws/getServicesByCategory/" + categoryId;
+            request.setAttribute("selectedCategoryId", categoryId);
         }
 
-        Client client = ClientBuilder.newClient();
-        String restUrl = "http://localhost:8081/ca2-ws/getServicesByCategory/" + categoryId;
         WebTarget target = client.target(restUrl);
         Invocation.Builder invocationBuilder = target.request(MediaType.APPLICATION_JSON);
         Response resp = invocationBuilder.get();
@@ -46,11 +48,8 @@ public class FilterServicesServlet extends HttpServlet {
             List<Services> servicesList = resp.readEntity(new GenericType<List<Services>>() {});
             request.setAttribute("servicesList", servicesList);
         } else {
-            request.setAttribute("error", "No services found for this category.");
+            request.setAttribute("servicesList", null);
         }
-
-        // Pass categoryId as an attribute
-        request.setAttribute("selectedCategoryId", categoryId);
 
         RequestDispatcher rd = request.getRequestDispatcher("CA2/serviceFunctionalities.jsp");
         rd.forward(request, response);
@@ -60,5 +59,3 @@ public class FilterServicesServlet extends HttpServlet {
         doGet(request, response);
     }
 }
-
-
