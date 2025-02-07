@@ -1,4 +1,4 @@
-<%@ page import="java.util.List, dbaccess.Users" %>
+<%@ page import="java.util.List, dbaccess.Users, dbaccess.ServiceCategories, dbaccess.Services" %>
 <%@ page contentType="text/html; charset=UTF-8" language="java" %>
 
 <html>
@@ -12,30 +12,44 @@
     </style>
 </head>
 <body>
-    <h2>Customers Who Booked Cleaning Service</h2>
+    <h2>Customers Who Booked Services</h2>
 
-    <form action="<%=request.getContextPath()%>/ViewCustomersServlet" method="get">
-        <label for="service_id">Select Service ID:</label>
-        <input type="number" name="service_id" required>
-        <button type="submit">Search</button>
+    <form action="CategoryServiceServlet" method="get">
+        <label for="category_id">Select Category:</label>
+        <select name="category_id" id="categorySelect" onchange="this.form.submit()">
+            <option value="">-- Choose a Category --</option>
+            <% List<ServiceCategories> categories = (List<ServiceCategories>) request.getAttribute("categories");
+               if (categories != null) {
+                   for (ServiceCategories category : categories) { %>
+                       <option value="<%= category.getCategoryId() %>"><%= category.getCategoryName() %></option>
+                   <% }
+               } %>
+        </select>
     </form>
 
-    <%
-        List<Users> customers = (List<Users>) request.getAttribute("customers");
-        Integer service_id = (Integer) request.getAttribute("service_id");
+    <br>
 
-        if (customers != null && !customers.isEmpty()) {
-    %>
-        <h3>Customers for Service ID: <%= service_id %></h3>
+    <% List<Services> services = (List<Services>) request.getAttribute("services");
+       if (services != null && !services.isEmpty()) { %>
+        <form action="ViewCustomersServlet" method="get">
+            <label for="service_id">Select Service:</label>
+            <select name="service_id" required>
+                <% for (Services service : services) { %>
+                    <option value="<%= service.getServiceId() %>"><%= service.getServiceName() %></option>
+                <% } %>
+            </select>
+            <button type="submit">Search</button>
+        </form>
+    <% } %>
+
+    <br>
+
+    <% List<Users> customers = (List<Users>) request.getAttribute("customers");
+       if (customers != null && !customers.isEmpty()) { %>
+        <h3>Customers</h3>
         <table>
-            <tr>
-                <th>User ID</th>
-                <th>Username</th>
-                <th>Email</th>
-            </tr>
-            <%
-                for (Users user : customers) {
-            %>
+            <tr><th>User ID</th><th>Username</th><th>Email</th></tr>
+            <% for (Users user : customers) { %>
                 <tr>
                     <td><%= user.getId() %></td>
                     <td><%= user.getUsername() %></td>
@@ -43,8 +57,6 @@
                 </tr>
             <% } %>
         </table>
-    <% } else if (service_id != null) { %>
-        <p>No customers found for Service ID: <%= service_id %>.</p>
     <% } %>
 </body>
 </html>
