@@ -163,78 +163,126 @@ public class BookingDAO {
         return getBookings(condition);
     }
 
-    // Helper method to fetch bookings based on condition
-    private static List<Bookings> getBookings(String condition, String... params) {
+//    // Helper method to fetch bookings based on condition
+//    private static List<Bookings> getBookings(String condition, String... params) {
+//        List<Bookings> bookings = new ArrayList<>();
+//        try {
+//            Connection conn = DBConnection.getConnection();
+//            String sql = "SELECT * FROM bookings WHERE " + condition + " ORDER BY appointment_date ASC";
+//            PreparedStatement pstmt = conn.prepareStatement(sql);
+//            
+//            // Set dynamic parameters
+//            for (int i = 0; i < params.length; i++) {
+//                pstmt.setString(i + 1, params[i]);
+//            }
+//
+//            ResultSet rs = pstmt.executeQuery();
+//            while (rs.next()) {
+//                Bookings booking = new Bookings();
+//                booking.setBookingId(rs.getInt("booking_id"));
+//                booking.setUserId(rs.getInt("user_id"));
+//                booking.setServiceId(rs.getInt("service_id"));
+//                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
+//                booking.setSpecialRequests(rs.getString("special_requests"));
+//                booking.setStatus(rs.getString("status"));
+//                booking.setAddress(rs.getString("address"));
+//                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
+//                
+//                bookings.add(booking);
+//            }
+//            conn.close();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        return bookings;
+//    }
+    
+    public static List<Bookings> getBookings(String condition, String... params) {
         List<Bookings> bookings = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
         try {
-            Connection conn = DBConnection.getConnection();
-            String sql = "SELECT * FROM bookings WHERE " + condition + " ORDER BY appointment_date ASC";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            
+            conn = DBConnection.getConnection();
+            String sql = "SELECT " +
+                         "b.booking_id, " +
+                         "b.user_id, " +
+                         "u.username, " +
+                         "b.service_id, " +
+                         "s.service_name, " +
+                         "b.appointment_date, " +
+                         "b.special_requests, " +
+                         "b.status, " +
+                         "b.address, " +
+                         "b.booking_date " +
+                         "FROM bookings b " +
+                         "JOIN users u ON b.user_id = u.id " +
+                         "JOIN services s ON b.service_id = s.service_id " +
+                         "WHERE " + condition + 
+                         " ORDER BY b.appointment_date ASC";
+
+            pstmt = conn.prepareStatement(sql);
+
             // Set dynamic parameters
             for (int i = 0; i < params.length; i++) {
                 pstmt.setString(i + 1, params[i]);
             }
 
-            ResultSet rs = pstmt.executeQuery();
+            rs = pstmt.executeQuery();
             while (rs.next()) {
                 Bookings booking = new Bookings();
                 booking.setBookingId(rs.getInt("booking_id"));
                 booking.setUserId(rs.getInt("user_id"));
+                booking.setUsername(rs.getString("username")); // Add username
                 booking.setServiceId(rs.getInt("service_id"));
+                booking.setServiceName(rs.getString("service_name")); // Add service name
                 booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
                 booking.setSpecialRequests(rs.getString("special_requests"));
                 booking.setStatus(rs.getString("status"));
                 booking.setAddress(rs.getString("address"));
                 booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
-                
+
                 bookings.add(booking);
             }
-            conn.close();
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+                if (conn != null) conn.close();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
         return bookings;
     }
+
     
-    
-    // ✅ Get all pending bookings
-    public static ArrayList<Bookings> getPendingBookings() throws SQLException {
-        ArrayList<Bookings> pendingBookings = new ArrayList<>();
+    // ✅ Get all cart items with status "Confirmed"
+    public static ArrayList<Cart> getConfirmedCartItems() throws SQLException {
+        ArrayList<Cart> confirmedCartItems = new ArrayList<>();
         Connection conn = DBConnection.getConnection();
 
         try {
-            String sqlStr = "SELECT " +
-                            "b.booking_id, " +
-                            "b.user_id, " +
-                            "b.service_id, " +
-                            "b.appointment_date, " +
-                            "b.special_requests, " +
-                            "b.status, " +
-                            "b.address, " +
-                            "b.booking_date " +
-                            "FROM bookings b " +
-                            "WHERE b.status = 'Pending' " +
-                            "ORDER BY b.appointment_date ASC";
-
+            String sqlStr = "SELECT * FROM cart WHERE status = 'Confirmed' ORDER BY created_at ASC";
             PreparedStatement pstmt = conn.prepareStatement(sqlStr);
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
-                Bookings booking = new Bookings();
-                booking.setBookingId(rs.getInt("booking_id"));
-                booking.setUserId(rs.getInt("user_id"));
-                booking.setServiceId(rs.getInt("service_id"));
-                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
-                booking.setSpecialRequests(rs.getString("special_requests"));
-                booking.setStatus(rs.getString("status"));
-                booking.setAddress(rs.getString("address"));
-                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
+                Cart cartItem = new Cart();
+                cartItem.setCartItemId(rs.getInt("cart_item_id"));
+                cartItem.setUserId(rs.getInt("user_id"));
+                cartItem.setBookingId(rs.getInt("booking_id"));
+                cartItem.setTotalAmount(rs.getFloat("total_amount"));
+                cartItem.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                cartItem.setStatus(rs.getString("status"));
 
-                pendingBookings.add(booking);
+                confirmedCartItems.add(cartItem);
             }
 
-            System.out.println("✅ Retrieved pending bookings.");
+            System.out.println("✅ Retrieved confirmed cart items.");
 
         } catch (Exception err) {
             System.out.println("❌ BookingDAO Error: " + err);
@@ -242,26 +290,33 @@ public class BookingDAO {
             conn.close();
         }
 
-        return pendingBookings;
+        return confirmedCartItems;
     }
 
-    // ✅ Confirm a booking (update status to "Confirmed")
-    public static boolean confirmBooking(int bookingId) throws SQLException {
+    // ✅ Update status to "Delivering" in both bookings and cart
+    public static boolean markAsDelivering(int bookingId) throws SQLException {
         Connection conn = DBConnection.getConnection();
         boolean updated = false;
 
         try {
-            String sqlStr = "UPDATE bookings SET status = 'Confirmed' WHERE booking_id = ?";
-            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-            pstmt.setInt(1, bookingId);
+            // Update the status in the bookings table
+            String updateBookingSQL = "UPDATE bookings SET status = 'Delivering' WHERE booking_id = ?";
+            PreparedStatement pstmtBooking = conn.prepareStatement(updateBookingSQL);
+            pstmtBooking.setInt(1, bookingId);
+            int bookingUpdated = pstmtBooking.executeUpdate();
 
-            int affectedRows = pstmt.executeUpdate();
-            updated = affectedRows > 0;
+            // Update the status in the cart table
+            String updateCartSQL = "UPDATE cart SET status = 'Delivering' WHERE booking_id = ?";
+            PreparedStatement pstmtCart = conn.prepareStatement(updateCartSQL);
+            pstmtCart.setInt(1, bookingId);
+            int cartUpdated = pstmtCart.executeUpdate();
+
+            updated = (bookingUpdated > 0) && (cartUpdated > 0);
 
             if (updated) {
-                System.out.println("✅ Booking ID " + bookingId + " confirmed.");
+                System.out.println("✅ Booking ID " + bookingId + " and associated cart item marked as Delivering.");
             } else {
-                System.out.println("⚠️ Booking ID " + bookingId + " not found or already confirmed.");
+                System.out.println("⚠️ Booking ID " + bookingId + " not found or already Delivering.");
             }
 
         } catch (Exception err) {
@@ -272,4 +327,80 @@ public class BookingDAO {
 
         return updated;
     }
+    
+//    
+//    // ✅ Get all pending bookings
+//    public static ArrayList<Bookings> getPendingBookings() throws SQLException {
+//        ArrayList<Bookings> pendingBookings = new ArrayList<>();
+//        Connection conn = DBConnection.getConnection();
+//
+//        try {
+//            String sqlStr = "SELECT " +
+//                            "b.booking_id, " +
+//                            "b.user_id, " +
+//                            "b.service_id, " +
+//                            "b.appointment_date, " +
+//                            "b.special_requests, " +
+//                            "b.status, " +
+//                            "b.address, " +
+//                            "b.booking_date " +
+//                            "FROM bookings b " +
+//                            "WHERE b.status = 'Pending' " +
+//                            "ORDER BY b.appointment_date ASC";
+//
+//            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+//            ResultSet rs = pstmt.executeQuery();
+//
+//            while (rs.next()) {
+//                Bookings booking = new Bookings();
+//                booking.setBookingId(rs.getInt("booking_id"));
+//                booking.setUserId(rs.getInt("user_id"));
+//                booking.setServiceId(rs.getInt("service_id"));
+//                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
+//                booking.setSpecialRequests(rs.getString("special_requests"));
+//                booking.setStatus(rs.getString("status"));
+//                booking.setAddress(rs.getString("address"));
+//                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
+//
+//                pendingBookings.add(booking);
+//            }
+//
+//            System.out.println("✅ Retrieved pending bookings.");
+//
+//        } catch (Exception err) {
+//            System.out.println("❌ BookingDAO Error: " + err);
+//        } finally {
+//            conn.close();
+//        }
+//
+//        return pendingBookings;
+//    }
+//
+//    // ✅ Confirm a booking (update status to "Confirmed")
+//    public static boolean confirmBooking(int bookingId) throws SQLException {
+//        Connection conn = DBConnection.getConnection();
+//        boolean updated = false;
+//
+//        try {
+//            String sqlStr = "UPDATE bookings SET status = 'Confirmed' WHERE booking_id = ?";
+//            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+//            pstmt.setInt(1, bookingId);
+//
+//            int affectedRows = pstmt.executeUpdate();
+//            updated = affectedRows > 0;
+//
+//            if (updated) {
+//                System.out.println("✅ Booking ID " + bookingId + " confirmed.");
+//            } else {
+//                System.out.println("⚠️ Booking ID " + bookingId + " not found or already confirmed.");
+//            }
+//
+//        } catch (Exception err) {
+//            System.out.println("❌ BookingDAO Error: " + err);
+//        } finally {
+//            conn.close();
+//        }
+//
+//        return updated;
+//    }
 }
