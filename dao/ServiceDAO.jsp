@@ -1,4 +1,4 @@
-package dbaccess;
+package com.service.ca2_ws.dbaccess;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -6,72 +6,20 @@ import java.util.List;
 
 public class ServiceDAO {
 
-    // Method to get popular cleaning services based on demand
-    public static List<Services> getPopularCleaningServices() {
-        List<Services> popularServices = new ArrayList<>();
+    // Get list of services by categoryId
+    public List<Services> getServicesByCategory(int categoryId) throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        List<Services> servicesList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
 
         try {
-            Connection conn = DBConnection.getConnection();
+            // SQL query to fetch services by category ID
+            String sql = "SELECT * FROM services WHERE category_id = ?";
+            stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, categoryId);
 
-            // Debug print
-            System.out.println("Connected to DB: Fetching popular services...");
-
-            // Query to find services with high demand based on booking trends
-            String sql = "SELECT s.service_Id, s.service_name, s.description, s.price, s.category_Id, s.image_path \r\n"
-            		+ "                         FROM services s \r\n"
-            		+ "                         JOIN booking_trends bt ON s.service_Id = bt.service_Id \r\n"
-            		+ "                         WHERE bt.bookings_Count > ?\r\n"
-            		+ "                         ORDER BY bt.bookings_Count DESC"; 
-
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, 1);  // Lower threshold to test data
-
-            ResultSet rs = pstmt.executeQuery();
-
-            while (rs.next()) {
-                Services service = new Services();
-                service.setServiceId(rs.getInt("service_Id"));
-                service.setServiceName(rs.getString("service_name"));
-                service.setDescription(rs.getString("description"));
-                service.setPrice(rs.getFloat("price"));
-                service.setCategoryId(rs.getInt("category_Id"));
-                service.setImagePath(rs.getString("image_path"));
-
-                popularServices.add(service);
-
-                // Debug output
-                System.out.println("Found popular service: " + service.getServiceName());
-            }
-
-            conn.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        if (popularServices.isEmpty()) {
-            System.out.println("No popular services found.");
-        }
-
-        return popularServices;
-    }
-    
-    
-    public static List<Services> getTopRatedServices(boolean bestRated) {
-        List<Services> services = new ArrayList<>();
-
-        try {
-            Connection conn = DBConnection.getConnection();
-            String sql = "SELECT s.*, COALESCE(AVG(f.rating), 0) AS avg_rating " +
-                         "FROM services s " +
-                         "JOIN bookings b ON s.service_id = b.service_id " +
-                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
-                         "GROUP BY s.service_id " +
-                         "HAVING COUNT(f.rating) > 0 " + 
-                         "ORDER BY avg_rating " + (bestRated ? "DESC" : "ASC") + 
-                         " LIMIT 10";
-
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
+            rs = stmt.executeQuery();
 
             while (rs.next()) {
                 Services service = new Services();
@@ -82,32 +30,200 @@ public class ServiceDAO {
                 service.setCategoryId(rs.getInt("category_id"));
                 service.setImagePath(rs.getString("image_path"));
 
-                services.add(service);
+                servicesList.add(service);
             }
-            conn.close();
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
+            throw e;
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
         }
 
+        return servicesList;  // Returns an empty list if no services are found
+    }
+    
+    
+ // Get all services
+    public List<Services> getAllServices() throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        List<Services> servicesList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            // SQL query to fetch all services
+            String sql = "SELECT * FROM services";
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setCategoryId(rs.getInt("category_id"));
+                service.setImagePath(rs.getString("image_path"));
+
+                servicesList.add(service);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
+        }
+
+        return servicesList;  // Return the list of services
+    }
+    
+ // Get all categories
+    public List<ServiceCategories> getAllCategories() throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        List<ServiceCategories> categoryList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            String sql = "SELECT * FROM service_categories";
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                ServiceCategories category = new ServiceCategories();
+                category.setCategoryId(rs.getInt("category_id"));
+                category.setCategoryName(rs.getString("category_name"));
+                category.setDescription(rs.getString("description"));
+
+                categoryList.add(category);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
+        }
+
+        return categoryList;
+    }
+    
+    public List<Services> getTopRatedServices(boolean bestRated) {
+        List<Services> services = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            String sql = "SELECT s.*, COALESCE(AVG(f.rating), 0) AS avg_rating " +
+                         "FROM services s " +
+                         "JOIN bookings b ON s.service_id = b.service_id " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "GROUP BY s.service_id " +
+                         "HAVING COUNT(f.rating) > 0 " +
+                         "ORDER BY avg_rating " + (bestRated ? "DESC" : "ASC") +
+                         " LIMIT 10";
+
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setAvgRating(rs.getDouble("avg_rating"));
+                services.add(service);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
         return services;
     }
     
-    public boolean updateServiceImage(int serviceId, String imagePath) throws Exception {
-        String sql = "UPDATE Services SET image_path = ? WHERE service_id = ?";
-        //UPDATE Services SET image_path = "hi" WHERE service_id = 26
-        
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setString(1, imagePath);
-            pstmt.setInt(2, serviceId);
-            
-            int affectedRows = pstmt.executeUpdate();
-            return affectedRows > 0;
-            
-        } catch (SQLException e) {
-            System.out.println("Error updating service image: " + e.getMessage());
-            return false;
-        }
+    public List<Services> getServicesByRating(double minRating) {
+        List<Services> servicesList = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            String sql = "SELECT s.*, COALESCE(AVG(f.rating), 0) AS avg_rating " +
+                         "FROM services s " +
+                         "JOIN bookings b ON s.service_id = b.service_id " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "GROUP BY s.service_id " +
+                         "HAVING avg_rating >= ? " +  // Filter for rating >= minRating
+                         "ORDER BY avg_rating DESC";
+
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setDouble(1, minRating); // Set the minimum rating parameter
+            rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setAvgRating(rs.getDouble("avg_rating")); // Ensure getter & setter exists
+
+                servicesList.add(service);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } 
+        return servicesList;
     }
+    
+    public List<Services> getRatingAllServices() {
+        List<Services> servicesList = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            String sql = "SELECT s.*, " +
+                         "COALESCE((SELECT AVG(f.rating) FROM bookings b " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "WHERE b.service_id = s.service_id), 0) AS avg_rating " +
+                         "FROM services s";
+            
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setCategoryId(rs.getInt("category_id"));
+                service.setAvgRating(rs.getDouble("avg_rating")); // ✅ Now avgRating is set correctly
+
+                servicesList.add(service);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } 
+        return servicesList;
+    }
+
 }
