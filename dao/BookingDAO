@@ -1,406 +1,229 @@
-package dbaccess;
+package com.service.ca2_ws.dbaccess;
 
 import java.sql.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BookingDAO {
-	public static boolean updateBookingStatus(int userId) throws SQLException {
-	    Connection conn = null;
-	    boolean success = false;
-	    try {
-	        conn = DBConnection.getConnection();
+public class ServiceDAO {
 
-	        String sqlStr = "UPDATE Bookings SET status = 'Confirmed' WHERE booking_id IN (SELECT booking_id FROM Cart WHERE user_id = ? AND status = 'Pending')";
-
-	        PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-	        pstmt.setInt(1, userId);
-
-	        int rowsUpdated = pstmt.executeUpdate(); // Use int to capture the number of affected rows
-
-	        if (rowsUpdated > 0) {
-	            success = true;
-	            System.out.println("Booking status updated successfully.");
-	        } else {
-	            System.out.println("No rows updated in the bookings.");
-	        }
-
-	    } catch (Exception err) {
-	        System.out.println("....CartDAO: " + err);
-	    } finally {
-	        if (conn != null) conn.close();
-	    }
-
-	    return success;
-	}
-	
-	public ArrayList<Bookings> getBookingsByUserId(int userId) {
-	    ArrayList<Bookings> bookings = new ArrayList<>();
-	    try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/cleaning_service", "root", "1234")) {
-
-	        // SQL query to fetch bookings
-	        String query = "SELECT b.booking_id AS booking_id, s.service_name, b.appointment_date, b.special_requests, b.address, b.status " +
-	                       "FROM Bookings b " +
-	                       "JOIN Services s ON b.service_id = s.service_id " +
-	                       "WHERE b.user_id = ? ORDER BY b.appointment_date DESC";
-	        PreparedStatement stmt = conn.prepareStatement(query);
-	        stmt.setInt(1, userId);
-	        ResultSet rs = stmt.executeQuery();
-
-	        // Process the result set
-	        while (rs.next()) {
-	            Bookings booking = new Bookings();
-	            booking.setBookingId(rs.getInt("booking_id"));
-	            booking.setServiceName(rs.getString("service_name"));
-	            // Convert appointment_date from String to LocalDateTime
-	            String appointmentDateString = rs.getString("appointment_date");
-	            if (appointmentDateString != null) {
-	                // Assuming appointment_date is stored in the DB as a string in a standard format
-	                LocalDateTime appointmentDate = LocalDateTime.parse(appointmentDateString, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-	                booking.setAppointmentDate(appointmentDate);
-	            }
-
-	            booking.setSpecialRequests(rs.getString("special_requests"));
-	            booking.setAddress(rs.getString("address"));
-	            booking.setStatus(rs.getString("status"));
-	            bookings.add(booking);
-	        }
-
-	        rs.close();
-	        stmt.close();
-
-	    } catch (SQLException e) {
-	        e.printStackTrace();
-	    }
-	    return bookings;
-	}
-
-	public static ArrayList<Bookings> getAllCancellations() throws SQLException {
-        ArrayList<Bookings> cancelledBookings = new ArrayList<>();
+    // Get list of services by categoryId
+    public List<Services> getServicesByCategory(int categoryId) throws SQLException {
         Connection conn = DBConnection.getConnection();
+        List<Services> servicesList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
 
         try {
-            String sqlStr = "SELECT " +
-                            "b.booking_id, " +
-                            "u.id, " +
-                            "u.username AS customerName, " +
-                            "u.email, " +
-                            "s.service_name, " +
-                            "s.price AS revenueLost, " +
-                            "b.appointment_date AS cancellationDate, " +
-                            "b.status, " +
-                            "b.address " +
-                            "FROM bookings b " +
-                            "JOIN users u ON b.user_id = u.id " +
-                            "JOIN services s ON b.service_id = s.service_id " +
-                            "WHERE b.status = 'Cancelled' " +
-                            "ORDER BY cancellationDate DESC";
+            // SQL query to fetch services by category ID
+            String sql = "SELECT * FROM services WHERE category_id = ?";
+            stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, categoryId);
 
-            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-            ResultSet rs = pstmt.executeQuery();
+            rs = stmt.executeQuery();
 
             while (rs.next()) {
-                Bookings booking = new Bookings();
-                booking.setBookingId(rs.getInt("booking_id"));
-                booking.setUserId(rs.getInt("id"));
-                booking.setCustomerName(rs.getString("customerName"));
-                booking.setEmail(rs.getString("email"));
-                booking.setServiceName(rs.getString("service_name"));
-                booking.setRevenueLost(rs.getFloat("revenueLost"));
-                booking.setAppointmentDate(rs.getTimestamp("cancellationDate").toLocalDateTime());
-                booking.setStatus(rs.getString("status"));
-                booking.setAddress(rs.getString("address"));
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setCategoryId(rs.getInt("category_id"));
+                service.setImagePath(rs.getString("image_path"));
 
-                cancelledBookings.add(booking);
+                servicesList.add(service);
             }
-
-            System.out.println("..done retrieving cancelled bookings..");
-
-        } catch (Exception err) {
-            System.out.println("....BookingDAO: " + err);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
         } finally {
-            conn.close();
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
         }
 
-        return cancelledBookings;
-    }
-	
-	// Retrieve bookings by date
-    public static List<Bookings> getBookingsByDate(LocalDate date) {
-        return getBookings("DATE(appointment_date) = ?", date.toString());
+        return servicesList;  // Returns an empty list if no services are found
     }
     
- // Retrieve bookings by year
-    public static List<Bookings> getBookingsByYear(int year) {
-        return getBookings("YEAR(appointment_date) = ?", String.valueOf(year));
-    }
+    
+ // Get all services
+    public List<Services> getAllServices() throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        List<Services> servicesList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
 
+        try {
+            // SQL query to fetch all services
+            String sql = "SELECT * FROM services";
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
 
-    // Retrieve bookings by month
-    public static List<Bookings> getBookingsByMonth(int year, int month) {
-        return getBookings("YEAR(appointment_date) = ? AND MONTH(appointment_date) = ?", String.valueOf(year), String.valueOf(month));
-    }
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setCategoryId(rs.getInt("category_id"));
+                service.setImagePath(rs.getString("image_path"));
 
-    // Retrieve bookings by period (e.g., morning, afternoon, evening)
-    public static List<Bookings> getBookingsByPeriod(String period) {
-        String condition;
-        switch (period.toLowerCase()) {
-            case "morning":
-                condition = "HOUR(appointment_date) BETWEEN 6 AND 11";
-                break;
-            case "afternoon":
-                condition = "HOUR(appointment_date) BETWEEN 12 AND 17";
-                break;
-            case "evening":
-                condition = "HOUR(appointment_date) BETWEEN 18 AND 23";
-                break;
-            default:
-                condition = "1=1"; // No filter if the period is invalid
+                servicesList.add(service);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
         }
-        return getBookings(condition);
-    }
 
-//    // Helper method to fetch bookings based on condition
-//    private static List<Bookings> getBookings(String condition, String... params) {
-//        List<Bookings> bookings = new ArrayList<>();
-//        try {
-//            Connection conn = DBConnection.getConnection();
-//            String sql = "SELECT * FROM bookings WHERE " + condition + " ORDER BY appointment_date ASC";
-//            PreparedStatement pstmt = conn.prepareStatement(sql);
-//            
-//            // Set dynamic parameters
-//            for (int i = 0; i < params.length; i++) {
-//                pstmt.setString(i + 1, params[i]);
-//            }
-//
-//            ResultSet rs = pstmt.executeQuery();
-//            while (rs.next()) {
-//                Bookings booking = new Bookings();
-//                booking.setBookingId(rs.getInt("booking_id"));
-//                booking.setUserId(rs.getInt("user_id"));
-//                booking.setServiceId(rs.getInt("service_id"));
-//                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
-//                booking.setSpecialRequests(rs.getString("special_requests"));
-//                booking.setStatus(rs.getString("status"));
-//                booking.setAddress(rs.getString("address"));
-//                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
-//                
-//                bookings.add(booking);
-//            }
-//            conn.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//        return bookings;
-//    }
+        return servicesList;  // Return the list of services
+    }
     
-    public static List<Bookings> getBookings(String condition, String... params) {
-        List<Bookings> bookings = new ArrayList<>();
+ // Get all categories
+    public List<ServiceCategories> getAllCategories() throws SQLException {
+        Connection conn = DBConnection.getConnection();
+        List<ServiceCategories> categoryList = new ArrayList<>();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            String sql = "SELECT * FROM service_categories";
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                ServiceCategories category = new ServiceCategories();
+                category.setCategoryId(rs.getInt("category_id"));
+                category.setCategoryName(rs.getString("category_name"));
+                category.setDescription(rs.getString("description"));
+
+                categoryList.add(category);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
+        }
+
+        return categoryList;
+    }
+    
+    public List<Services> getTopRatedServices(boolean bestRated) {
+        List<Services> services = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            String sql = "SELECT s.*, COALESCE(AVG(f.rating), 0) AS avg_rating " +
+                         "FROM services s " +
+                         "JOIN bookings b ON s.service_id = b.service_id " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "GROUP BY s.service_id " +
+                         "HAVING COUNT(f.rating) > 0 " +
+                         "ORDER BY avg_rating " + (bestRated ? "DESC" : "ASC") +
+                         " LIMIT 10";
+
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setAvgRating(rs.getDouble("avg_rating"));
+                services.add(service);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return services;
+    }
+    
+    public List<Services> getServicesByRating(double minRating) {
+        List<Services> servicesList = new ArrayList<>();
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
 
         try {
             conn = DBConnection.getConnection();
-            String sql = "SELECT " +
-                         "b.booking_id, " +
-                         "b.user_id, " +
-                         "u.username, " +
-                         "b.service_id, " +
-                         "s.service_name, " +
-                         "b.appointment_date, " +
-                         "b.special_requests, " +
-                         "b.status, " +
-                         "b.address, " +
-                         "b.booking_date " +
-                         "FROM bookings b " +
-                         "JOIN users u ON b.user_id = u.id " +
-                         "JOIN services s ON b.service_id = s.service_id " +
-                         "WHERE " + condition + 
-                         " ORDER BY b.appointment_date ASC";
+            String sql = "SELECT s.*, COALESCE(AVG(f.rating), 0) AS avg_rating " +
+                         "FROM services s " +
+                         "JOIN bookings b ON s.service_id = b.service_id " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "GROUP BY s.service_id " +
+                         "HAVING avg_rating >= ? " +  // Filter for rating >= minRating
+                         "ORDER BY avg_rating DESC";
 
             pstmt = conn.prepareStatement(sql);
-
-            // Set dynamic parameters
-            for (int i = 0; i < params.length; i++) {
-                pstmt.setString(i + 1, params[i]);
-            }
-
+            pstmt.setDouble(1, minRating); // Set the minimum rating parameter
             rs = pstmt.executeQuery();
-            while (rs.next()) {
-                Bookings booking = new Bookings();
-                booking.setBookingId(rs.getInt("booking_id"));
-                booking.setUserId(rs.getInt("user_id"));
-                booking.setUsername(rs.getString("username")); // Add username
-                booking.setServiceId(rs.getInt("service_id"));
-                booking.setServiceName(rs.getString("service_name")); // Add service name
-                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
-                booking.setSpecialRequests(rs.getString("special_requests"));
-                booking.setStatus(rs.getString("status"));
-                booking.setAddress(rs.getString("address"));
-                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
 
-                bookings.add(booking);
+            while (rs.next()) {
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setAvgRating(rs.getDouble("avg_rating")); // Ensure getter & setter exists
+
+                servicesList.add(service);
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-                if (conn != null) conn.close();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-        return bookings;
+        } 
+        return servicesList;
     }
-
     
-    // ✅ Get all cart items with status "Confirmed"
-    public static ArrayList<Cart> getConfirmedCartItems() throws SQLException {
-        ArrayList<Cart> confirmedCartItems = new ArrayList<>();
-        Connection conn = DBConnection.getConnection();
+    public List<Services> getRatingAllServices() {
+        List<Services> servicesList = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
 
         try {
-            String sqlStr = "SELECT * FROM cart WHERE status = 'Confirmed' ORDER BY created_at ASC";
-            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-            ResultSet rs = pstmt.executeQuery();
+            conn = DBConnection.getConnection();
+            String sql = "SELECT s.*, " +
+                         "COALESCE((SELECT AVG(f.rating) FROM bookings b " +
+                         "JOIN feedbacks f ON b.booking_id = f.booking_id " +
+                         "WHERE b.service_id = s.service_id), 0) AS avg_rating " +
+                         "FROM services s";
+            
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
 
             while (rs.next()) {
-                Cart cartItem = new Cart();
-                cartItem.setCartItemId(rs.getInt("cart_item_id"));
-                cartItem.setUserId(rs.getInt("user_id"));
-                cartItem.setBookingId(rs.getInt("booking_id"));
-                cartItem.setTotalAmount(rs.getFloat("total_amount"));
-                cartItem.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-                cartItem.setStatus(rs.getString("status"));
+                Services service = new Services();
+                service.setServiceId(rs.getInt("service_id"));
+                service.setServiceName(rs.getString("service_name"));
+                service.setDescription(rs.getString("description"));
+                service.setPrice(rs.getFloat("price"));
+                service.setCategoryId(rs.getInt("category_id"));
+                service.setAvgRating(rs.getDouble("avg_rating")); // ✅ Now avgRating is set correctly
 
-                confirmedCartItems.add(cartItem);
+                servicesList.add(service);
             }
-
-            System.out.println("✅ Retrieved confirmed cart items.");
-
-        } catch (Exception err) {
-            System.out.println("❌ BookingDAO Error: " + err);
-        } finally {
-            conn.close();
-        }
-
-        return confirmedCartItems;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } 
+        return servicesList;
     }
 
-    // ✅ Update status to "Delivering" in both bookings and cart
-    public static boolean markAsDelivering(int bookingId) throws SQLException {
-        Connection conn = DBConnection.getConnection();
-        boolean updated = false;
-
-        try {
-            // Update the status in the bookings table
-            String updateBookingSQL = "UPDATE bookings SET status = 'Delivering' WHERE booking_id = ?";
-            PreparedStatement pstmtBooking = conn.prepareStatement(updateBookingSQL);
-            pstmtBooking.setInt(1, bookingId);
-            int bookingUpdated = pstmtBooking.executeUpdate();
-
-            // Update the status in the cart table
-            String updateCartSQL = "UPDATE cart SET status = 'Delivering' WHERE booking_id = ?";
-            PreparedStatement pstmtCart = conn.prepareStatement(updateCartSQL);
-            pstmtCart.setInt(1, bookingId);
-            int cartUpdated = pstmtCart.executeUpdate();
-
-            updated = (bookingUpdated > 0) && (cartUpdated > 0);
-
-            if (updated) {
-                System.out.println("✅ Booking ID " + bookingId + " and associated cart item marked as Delivering.");
-            } else {
-                System.out.println("⚠️ Booking ID " + bookingId + " not found or already Delivering.");
-            }
-
-        } catch (Exception err) {
-            System.out.println("❌ BookingDAO Error: " + err);
-        } finally {
-            conn.close();
-        }
-
-        return updated;
-    }
-    
-//    
-//    // ✅ Get all pending bookings
-//    public static ArrayList<Bookings> getPendingBookings() throws SQLException {
-//        ArrayList<Bookings> pendingBookings = new ArrayList<>();
-//        Connection conn = DBConnection.getConnection();
-//
-//        try {
-//            String sqlStr = "SELECT " +
-//                            "b.booking_id, " +
-//                            "b.user_id, " +
-//                            "b.service_id, " +
-//                            "b.appointment_date, " +
-//                            "b.special_requests, " +
-//                            "b.status, " +
-//                            "b.address, " +
-//                            "b.booking_date " +
-//                            "FROM bookings b " +
-//                            "WHERE b.status = 'Pending' " +
-//                            "ORDER BY b.appointment_date ASC";
-//
-//            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-//            ResultSet rs = pstmt.executeQuery();
-//
-//            while (rs.next()) {
-//                Bookings booking = new Bookings();
-//                booking.setBookingId(rs.getInt("booking_id"));
-//                booking.setUserId(rs.getInt("user_id"));
-//                booking.setServiceId(rs.getInt("service_id"));
-//                booking.setAppointmentDate(rs.getTimestamp("appointment_date").toLocalDateTime());
-//                booking.setSpecialRequests(rs.getString("special_requests"));
-//                booking.setStatus(rs.getString("status"));
-//                booking.setAddress(rs.getString("address"));
-//                booking.setBookingDate(rs.getTimestamp("booking_date").toLocalDateTime());
-//
-//                pendingBookings.add(booking);
-//            }
-//
-//            System.out.println("✅ Retrieved pending bookings.");
-//
-//        } catch (Exception err) {
-//            System.out.println("❌ BookingDAO Error: " + err);
-//        } finally {
-//            conn.close();
-//        }
-//
-//        return pendingBookings;
-//    }
-//
-//    // ✅ Confirm a booking (update status to "Confirmed")
-//    public static boolean confirmBooking(int bookingId) throws SQLException {
-//        Connection conn = DBConnection.getConnection();
-//        boolean updated = false;
-//
-//        try {
-//            String sqlStr = "UPDATE bookings SET status = 'Confirmed' WHERE booking_id = ?";
-//            PreparedStatement pstmt = conn.prepareStatement(sqlStr);
-//            pstmt.setInt(1, bookingId);
-//
-//            int affectedRows = pstmt.executeUpdate();
-//            updated = affectedRows > 0;
-//
-//            if (updated) {
-//                System.out.println("✅ Booking ID " + bookingId + " confirmed.");
-//            } else {
-//                System.out.println("⚠️ Booking ID " + bookingId + " not found or already confirmed.");
-//            }
-//
-//        } catch (Exception err) {
-//            System.out.println("❌ BookingDAO Error: " + err);
-//        } finally {
-//            conn.close();
-//        }
-//
-//        return updated;
-//    }
 }
