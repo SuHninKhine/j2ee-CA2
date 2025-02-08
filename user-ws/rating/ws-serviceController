@@ -1,0 +1,100 @@
+package com.service.ca2_ws.controller;
+
+import org.springframework.web.bind.annotation.*;
+
+import com.service.ca2_ws.dbaccess.ServiceCategories;
+import com.service.ca2_ws.dbaccess.ServiceDAO;
+import com.service.ca2_ws.dbaccess.Services;
+
+import java.util.List;
+
+@RestController
+public class ServiceController {
+
+    @RequestMapping(method = RequestMethod.GET, path = "/getServicesByCategory/{categoryId}")
+    public List<Services> getServicesByCategory(@PathVariable("categoryId") int categoryId) {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getServicesByCategory(categoryId);
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/getAllServices")
+    public List<Services> getAllServices() {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getAllServices();
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+    
+    
+ // Get all categories
+    @RequestMapping(method = RequestMethod.GET, path = "/getAllCategories")
+    public List<ServiceCategories> getAllCategories() {
+        List<ServiceCategories> categories = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            categories = serviceDAO.getAllCategories();
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return categories;
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/getHighestRatedServices")
+    public List<Services> getHighestRatedServices() {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getTopRatedServices(true); // Fetch Highest Rated Services
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+
+    @RequestMapping(method = RequestMethod.GET, path = "/getLowestRatedServices")
+    public List<Services> getLowestRatedServices() {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getTopRatedServices(false); // Fetch Lowest Rated Services
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/getServicesByRating/{minRating}")
+    public List<Services> getServicesByRating(@PathVariable("minRating") double minRating) {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getServicesByRating(minRating);
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/getAllServicesWithRatings")
+    public List<Services> getAllServicesWithRatings() {
+        List<Services> services = null;
+        try {
+            ServiceDAO serviceDAO = new ServiceDAO();
+            services = serviceDAO.getRatingAllServices(); // ✅ Updated function name
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return services;
+    }
+
+}
